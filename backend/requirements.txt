@@ -2,3 +2,4 @@ Flask>=3.0,<4
 flask-cors>=4.0,<7
 gunicorn>=21.2.0
 yt-dlp[default]
+git+https://github.com/yt-dlp/yt-dlp.git

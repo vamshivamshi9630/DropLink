@@ -59,12 +59,14 @@ def worker(job_id, url, media_type, quality):
             else:
                 fmt=f"bv*[height<={int(quality)}]+ba/b[height<={int(quality)}]"
             args=["yt-dlp","--no-playlist","--restrict-filenames","--newline","--progress",
-                  "--max-filesize","1G","-f",fmt,"--merge-output-format","mp4",
+                  "--max-filesize","1G","--extractor-args","youtube:player_client=android,web,tv,ios",
+                  "-f",fmt,"--merge-output-format","mp4",
                   "-o",str(work/"%(title)s.%(ext)s"),url]
         else:
             aq = quality if quality in {"128","192","320"} else "0"
             args=["yt-dlp","--no-playlist","--restrict-filenames","--newline","--progress",
-                  "--max-filesize","1G","-x","--audio-format","mp3","--audio-quality",
+                  "--max-filesize","1G","--extractor-args","youtube:player_client=android,web,tv,ios",
+                  "-x","--audio-format","mp3","--audio-quality",
                   aq,"-o",str(work/"%(title)s.%(ext)s"),url]
 
         p=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding="utf-8",errors="replace")

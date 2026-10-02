@@ -6,12 +6,13 @@ ENV PYTHONUNBUFFERED=1 \
     DENO_INSTALL="/root/.deno" \
     PATH="/root/.deno/bin:/usr/local/bin:${PATH}"
 
-# Install system dependencies: ffmpeg, ca-certificates, curl, unzip
+# Install system dependencies: ffmpeg, ca-certificates, curl, unzip, git
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     ca-certificates \
     curl \
     unzip \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Deno and copy binary to /usr/local/bin for global availability
@@ -21,7 +22,7 @@ RUN curl -fsSL https://deno.land/install.sh | sh \
 
 WORKDIR /app
 
-# Copy requirements and install backend dependencies including yt-dlp[default]
+# Copy requirements and install backend dependencies including latest yt-dlp master with default extras
 COPY backend/requirements.txt /app/backend/requirements.txt
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
