@@ -14,6 +14,13 @@ const result = document.getElementById("result");
 const resultName = document.getElementById("resultName");
 const fileLink = document.getElementById("fileLink");
 
+function resetResult(){
+  result.classList.add("hidden");
+  resultName.textContent = "";
+  fileLink.removeAttribute("href");
+  fileLink.removeAttribute("download");
+}
+
 function setOptions(){
   quality.innerHTML = "";
   const opts = type === "video"
@@ -48,8 +55,8 @@ function validUrl(v){
 
 async function startDownload(){
   const url=urlInput.value.trim();
-  if(!validUrl(url)){showStatus("Invalid link","Paste a valid YouTube or Instagram URL.",0);return}
-  downloadBtn.disabled=true; result.classList.add("hidden"); showStatus("Checking link","Preparing download…",5);
+  if(!validUrl(url)){resetResult();showStatus("Invalid link","Paste a valid YouTube or Instagram URL.",0);return}
+  downloadBtn.disabled=true; resetResult(); showStatus("Checking link","Preparing download…",5);
   try{
     const r=await fetch(`${API}/download`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url,type,quality:quality.value})});
     const data=await r.json();
@@ -57,6 +64,7 @@ async function startDownload(){
     showStatus("Downloading", "Job started…", 10);
     poll(data.jobId);
   }catch(e){
+    resetResult();
     showStatus("Download failed",e.message,0);
     downloadBtn.disabled=false;
   }
@@ -82,6 +90,7 @@ async function poll(jobId){
       throw new Error(d.error||"Download failed");
     }
   }catch(e){
+    resetResult();
     showStatus("Download failed",e.message,0);
     downloadBtn.disabled=false;
   }

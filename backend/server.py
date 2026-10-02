@@ -17,6 +17,26 @@ CORS(app)
 YOUTUBE={"youtube.com","www.youtube.com","youtu.be","www.youtu.be"}
 INSTAGRAM={"instagram.com","www.instagram.com"}
 
+def log_startup_diagnostics():
+    def run_ver(cmd):
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if p.returncode == 0 and p.stdout.strip():
+                return p.stdout.strip().splitlines()[0]
+            return p.stderr.strip().splitlines()[0] if p.stderr.strip() else f"exit code {p.returncode}"
+        except FileNotFoundError:
+            return "NOT FOUND (not in PATH)"
+        except Exception as e:
+            return f"error: {e}"
+
+    print("=== LINKDROP STARTUP DIAGNOSTICS ===", flush=True)
+    print(f"yt-dlp version: {run_ver(['yt-dlp', '--version'])}", flush=True)
+    print(f"Deno version:   {run_ver(['deno', '--version'])}", flush=True)
+    print(f"FFmpeg version: {run_ver(['ffmpeg', '-version'])}", flush=True)
+    print("====================================", flush=True)
+
+log_startup_diagnostics()
+
 def allowed_url(value):
     try:
         from urllib.parse import urlparse
@@ -58,12 +78,26 @@ def worker(job_id, url, media_type, quality):
                 job["progress"]=min(99,float(m.group(1)))
                 job["message"]="Downloading…"
         code=p.wait()
+
         if code!=0:
-            tail="\n".join(lines[-8:])
-            low=tail.lower()
-            if "private" in low or "login" in low:
-                raise RuntimeError("Private or login-required content is not supported.")
-            raise RuntimeError("yt-dlp could not download this URL. Check the link and content availability.")
+            full_log="\n".join(lines)
+            print(f"[JOB {job_id} ERROR] yt-dlp exited with code {code}:\n{full_log}", flush=True)
+            low=full_log.lower()
+            if "private" in low or "login" in low or "account" in low:
+                err_msg="Private or login-required content is not supported."
+            elif "unavailable" in low or "does not exist" in low or "video has been removed" in low:
+                err_msg="Video is unavailable or has been removed."
+            elif "copyright" in low or "blocked" in low:
+                err_msg="This content is blocked or restricted."
+            else:
+                err_lines=[l for l in lines if "ERROR:" in l]
+                if err_lines:
+                    raw_err=err_lines[-1].split("ERROR:",1)[-1].strip()
+                    clean_err=re.sub(r'/[^\s:]+|[A-Za-z]:\\[^\s:]+','',raw_err).strip()
+                    err_msg=f"yt-dlp error: {clean_err}" if clean_err else "yt-dlp could not download this URL."
+                else:
+                    err_msg="yt-dlp could not download this URL. Check the link and content availability."
+            raise RuntimeError(err_msg)
 
         candidates=[p for p in work.iterdir() if p.is_file()]
         if not candidates: raise RuntimeError("No output file was produced.")
