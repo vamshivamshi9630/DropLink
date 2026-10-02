@@ -1,0 +1,9 @@
+backend/venv/
+backend/downloads/*
+!backend/downloads/.gitkeep
+__pycache__/
+*.pyc
+.env
+.vscode/
+.idea/
+.DS_Store

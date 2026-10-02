@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0d12">
+  <title>LinkDrop</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <div class="logo">LinkDrop</div>
+      <button id="themeBtn" class="icon-btn" aria-label="Toggle theme">☀</button>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">VIDEO DOWNLOADER</p>
+      <h1>Paste a video link.<br><span>Download it.</span></h1>
+      <p class="sub">YouTube and Instagram downloads from one simple page.</p>
+
+      <div class="card">
+        <div class="input-wrap">
+          <input id="url" type="url" placeholder="Paste YouTube or Instagram link" autocomplete="off">
+          <span id="platform" class="platform"></span>
+        </div>
+
+        <div class="row">
+          <div class="segmented">
+            <button class="active" data-type="video">Video</button>
+            <button data-type="audio">Audio</button>
+          </div>
+          <select id="quality"></select>
+        </div>
+
+        <button id="downloadBtn" class="download-btn">Download</button>
+
+        <div id="status" class="status hidden">
+          <div class="status-title" id="statusTitle"></div>
+          <div class="progress"><div id="progressBar"></div></div>
+          <div class="status-detail" id="statusDetail"></div>
+        </div>
+
+        <div id="result" class="result hidden">
+          <div>
+            <strong>Ready!</strong>
+            <p id="resultName"></p>
+          </div>
+          <a id="fileLink" class="file-btn">Download file</a>
+        </div>
+      </div>
+
+      <p class="privacy">Only download content you have permission to save. Private, restricted, login-only and DRM-protected content isn't supported.</p>
+    </section>
+
+    <footer>LinkDrop · Local downloader</footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
