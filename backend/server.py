@@ -37,6 +37,25 @@ def log_startup_diagnostics():
 
 log_startup_diagnostics()
 
+def format_as_netscape_cookies(raw_text):
+    raw_text = raw_text.strip()
+    if not raw_text:
+        return ""
+    lines = raw_text.splitlines()
+    if any("Netscape" in l or "\t" in l for l in lines[:5]):
+        return raw_text
+    
+    netscape_lines = ["# Netscape HTTP Cookie File"]
+    for chunk in raw_text.replace("\n", ";").split(";"):
+        chunk = chunk.strip()
+        if "=" in chunk:
+            parts = chunk.split("=", 1)
+            k, v = parts[0].strip(), parts[1].strip()
+            if k and v:
+                netscape_lines.append(f".youtube.com\tTRUE\t/\tFALSE\t0\t{k}\t{v}")
+                netscape_lines.append(f".instagram.com\tTRUE\t/\tFALSE\t0\t{k}\t{v}")
+    return "\n".join(netscape_lines)
+
 def allowed_url(value):
     try:
         from urllib.parse import urlparse
@@ -46,28 +65,52 @@ def allowed_url(value):
     except Exception:
         return False
 
-def worker(job_id, url, media_type, quality):
+def worker(job_id, url, media_type, quality, cookies_text=None):
     global ACTIVE
     job=JOBS[job_id]
     work=DOWNLOADS/job_id
     work.mkdir(parents=True,exist_ok=True)
     try:
         job.update(status="running",progress=0,message="yt-dlp started")
-        if media_type=="video":
-            if quality=="best":
-                fmt="bv*+ba/b"
+
+        cookie_file = None
+        if cookies_text and cookies_text.strip():
+            formatted_cookies = format_as_netscape_cookies(cookies_text)
+            if formatted_cookies:
+                cookie_file = work / "cookies.txt"
+                cookie_file.write_text(formatted_cookies, encoding="utf-8")
+
+        base_args = [
+            "yt-dlp",
+            "--no-playlist",
+            "--restrict-filenames",
+            "--newline",
+            "--progress",
+            "--max-filesize", "1G",
+            "--remote-components", "ejs:github",
+            "--extractor-args", "youtube:player_client=android,web,tv,ios",
+        ]
+        if cookie_file and cookie_file.is_file():
+            base_args.extend(["--cookies", str(cookie_file)])
+
+        if media_type == "video":
+            if quality == "best":
+                fmt = "bestvideo+bestaudio/bv*+ba/best/b"
             else:
-                fmt=f"bv*[height<={int(quality)}]+ba/b[height<={int(quality)}]"
-            args=["yt-dlp","--no-playlist","--restrict-filenames","--newline","--progress",
-                  "--max-filesize","1G","--extractor-args","youtube:player_client=android,web,tv,ios",
-                  "-f",fmt,"--merge-output-format","mp4",
-                  "-o",str(work/"%(title)s.%(ext)s"),url]
+                fmt = f"bestvideo[height<={int(quality)}]+bestaudio/bestvideo[height<={int(quality)}]+ba/best[height<={int(quality)}]/bv*[height<={int(quality)}]+ba/b"
+            args = base_args + [
+                "-f", fmt,
+                "--merge-output-format", "mp4",
+                "-o", str(work / "%(title)s.%(ext)s"),
+                url
+            ]
         else:
-            aq = quality if quality in {"128","192","320"} else "0"
-            args=["yt-dlp","--no-playlist","--restrict-filenames","--newline","--progress",
-                  "--max-filesize","1G","--extractor-args","youtube:player_client=android,web,tv,ios",
-                  "-x","--audio-format","mp3","--audio-quality",
-                  aq,"-o",str(work/"%(title)s.%(ext)s"),url]
+            aq = quality if quality in {"128", "192", "320"} else "0"
+            args = base_args + [
+                "-x", "--audio-format", "mp3", "--audio-quality", aq,
+                "-o", str(work / "%(title)s.%(ext)s"),
+                url
+            ]
 
         p=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding="utf-8",errors="replace")
         lines=[]
@@ -85,8 +128,10 @@ def worker(job_id, url, media_type, quality):
             full_log="\n".join(lines)
             print(f"[JOB {job_id} ERROR] yt-dlp exited with code {code}:\n{full_log}", flush=True)
             low=full_log.lower()
-            if "private" in low or "login" in low or "account" in low:
-                err_msg="Private or login-required content is not supported."
+            if "cookie" in low or "login" in low or "account" in low or "sign in" in low or "empty media response" in low or "bot" in low:
+                err_msg="YouTube/Instagram requested login or verification. Please paste your cookies in the optional Cookies section."
+            elif "private" in low:
+                err_msg="Private content is not supported."
             elif "unavailable" in low or "does not exist" in low or "video has been removed" in low:
                 err_msg="Video is unavailable or has been removed."
             elif "copyright" in low or "blocked" in low:
@@ -101,7 +146,7 @@ def worker(job_id, url, media_type, quality):
                     err_msg="yt-dlp could not download this URL. Check the link and content availability."
             raise RuntimeError(err_msg)
 
-        candidates=[p for p in work.iterdir() if p.is_file()]
+        candidates=[p for p in work.iterdir() if p.is_file() and p.name != "cookies.txt"]
         if not candidates: raise RuntimeError("No output file was produced.")
         out=max(candidates,key=lambda x:x.stat().st_mtime)
         if out.stat().st_size>MAX_BYTES: raise RuntimeError("Downloaded file is larger than 1 GB.")
@@ -122,6 +167,7 @@ def create_download():
     url=str(data.get("url","")).strip()
     media_type=data.get("type","video")
     quality=str(data.get("quality","best"))
+    cookies_text=str(data.get("cookies","")).strip()
     if not allowed_url(url): return jsonify(error="Only YouTube and Instagram URLs are supported."),400
     if media_type not in ("video","audio"): return jsonify(error="Invalid media type."),400
     valid_video={"best","360","480","720","1080"}; valid_audio={"best","128","192","320"}
@@ -131,7 +177,7 @@ def create_download():
         ACTIVE=True
     job_id=str(uuid.uuid4())
     JOBS[job_id]={"status":"queued","progress":0,"message":"Queued","filename":None,"file":None}
-    threading.Thread(target=worker,args=(job_id,url,media_type,quality),daemon=True).start()
+    threading.Thread(target=worker,args=(job_id,url,media_type,quality,cookies_text),daemon=True).start()
     return jsonify(jobId=job_id),202
 
 @app.get("/api/download/<job_id>")

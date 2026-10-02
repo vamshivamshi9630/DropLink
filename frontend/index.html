@@ -33,6 +33,17 @@
           <select id="quality"></select>
         </div>
 
+        <div class="cookies-section">
+          <button id="toggleCookiesBtn" type="button" class="cookies-toggle-btn">
+            <span>⚙ Optional Cookies (for restricted YouTube / Instagram videos)</span>
+            <span id="cookiesArrow">▼</span>
+          </button>
+          <div id="cookiesWrap" class="cookies-wrap hidden">
+            <textarea id="cookiesInput" rows="3" placeholder="Paste Netscape cookies.txt content or cookie string (e.g. SID=...; HSID=...) if video requires login/verification."></textarea>
+            <p class="cookies-help">Paste cookies if YouTube or Instagram requests verification or login.</p>
+          </div>
+        </div>
+
         <button id="downloadBtn" class="download-btn">Download</button>
 
         <div id="status" class="status hidden">

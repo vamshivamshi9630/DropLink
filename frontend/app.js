@@ -14,6 +14,24 @@ const result = document.getElementById("result");
 const resultName = document.getElementById("resultName");
 const fileLink = document.getElementById("fileLink");
 
+const toggleCookiesBtn = document.getElementById("toggleCookiesBtn");
+const cookiesWrap = document.getElementById("cookiesWrap");
+const cookiesArrow = document.getElementById("cookiesArrow");
+const cookiesInput = document.getElementById("cookiesInput");
+
+if (toggleCookiesBtn && cookiesWrap && cookiesArrow) {
+  toggleCookiesBtn.onclick = () => {
+    const isHidden = cookiesWrap.classList.contains("hidden");
+    if (isHidden) {
+      cookiesWrap.classList.remove("hidden");
+      cookiesArrow.textContent = "▲";
+    } else {
+      cookiesWrap.classList.add("hidden");
+      cookiesArrow.textContent = "▼";
+    }
+  };
+}
+
 function resetResult(){
   result.classList.add("hidden");
   resultName.textContent = "";
@@ -57,14 +75,19 @@ async function startDownload(){
   const url=urlInput.value.trim();
   if(!validUrl(url)){resetResult();showStatus("Invalid link","Paste a valid YouTube or Instagram URL.",0);return}
   downloadBtn.disabled=true; resetResult(); showStatus("Checking link","Preparing download…",5);
+  const cookies = cookiesInput ? cookiesInput.value.trim() : "";
   try{
-    const r=await fetch(`${API}/download`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url,type,quality:quality.value})});
+    const r=await fetch(`${API}/download`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url,type,quality:quality.value,cookies})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||"Download request failed");
     showStatus("Downloading", "Job started…", 10);
     poll(data.jobId);
   }catch(e){
     resetResult();
+    if (/cookie|login|verification|private|bot/i.test(e.message) && cookiesWrap) {
+      cookiesWrap.classList.remove("hidden");
+      if (cookiesArrow) cookiesArrow.textContent = "▲";
+    }
     showStatus("Download failed",e.message,0);
     downloadBtn.disabled=false;
   }
@@ -91,6 +114,10 @@ async function poll(jobId){
     }
   }catch(e){
     resetResult();
+    if (/cookie|login|verification|private|bot/i.test(e.message) && cookiesWrap) {
+      cookiesWrap.classList.remove("hidden");
+      if (cookiesArrow) cookiesArrow.textContent = "▲";
+    }
     showStatus("Download failed",e.message,0);
     downloadBtn.disabled=false;
   }
